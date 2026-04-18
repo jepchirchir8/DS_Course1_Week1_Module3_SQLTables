@@ -4,7 +4,7 @@ import numpy as np
 
 conn = sqlite3.connect('data.sqlite')
 
-# Part 1: Step 1 (ONLY 2 columns: firstName, lastName)
+# Part 1: Step 1
 df_boston = pd.read_sql("""
     SELECT e.firstName, e.lastName
     FROM employees e
@@ -21,7 +21,7 @@ df_zero_emp = pd.read_sql("""
     HAVING employeeCount = 0
 """, conn)
 
-# Part 2: Step 3 (Variable name MUST be df_employee)
+# Part 2: Step 3
 df_employee = pd.read_sql("""
     SELECT e.firstName, e.lastName, o.city, o.state
     FROM employees e
@@ -29,8 +29,8 @@ df_employee = pd.read_sql("""
     ORDER BY e.firstName, e.lastName
 """, conn)
 
-# Part 2: Step 4
-df_no_orders = pd.read_sql("""
+# Part 2: Step 4 — RENAMED to df_contacts
+df_contacts = pd.read_sql("""
     SELECT c.contactFirstName, c.contactLastName, c.phone, c.salesRepEmployeeNumber
     FROM customers c
     LEFT JOIN orders o ON c.customerNumber = o.customerNumber
@@ -38,7 +38,7 @@ df_no_orders = pd.read_sql("""
     ORDER BY c.contactLastName ASC
 """, conn)
 
-# Part 3: Step 5 (Sorting fix for Diego)
+# Part 3: Step 5
 df_payment = pd.read_sql("""
     SELECT c.contactFirstName, c.contactLastName, p.amount, p.paymentDate
     FROM customers c
@@ -46,7 +46,7 @@ df_payment = pd.read_sql("""
     ORDER BY p.amount DESC
 """, conn)
 
-# Part 4: Step 6 & 7 (These passed, but keep names consistent)
+# Part 4: Step 6 & 7
 df_credit = pd.read_sql("""
     SELECT e.employeeNumber, e.firstName, e.lastName, COUNT(c.customerNumber) AS no_of_customers
     FROM employees e
@@ -64,7 +64,7 @@ df_product_sold = pd.read_sql("""
     ORDER BY totalunits DESC
 """, conn)
 
-# Part 5: Step 8 & 9 (Fixing the n_customers count)
+# Part 5: Step 8
 df_total_customers = pd.read_sql("""
     SELECT p.productName, p.productCode, COUNT(DISTINCT o.customerNumber) AS numpurchasers
     FROM products p
@@ -74,8 +74,9 @@ df_total_customers = pd.read_sql("""
     ORDER BY numpurchasers DESC
 """, conn)
 
+# Part 5: Step 9 — FIXED with DISTINCT to avoid join inflation
 df_customers = pd.read_sql("""
-    SELECT o.officeCode, o.city, COUNT(c.customerNumber) AS n_customers
+    SELECT o.officeCode, o.city, COUNT(DISTINCT c.customerNumber) AS n_customers
     FROM offices o
     JOIN employees e ON o.officeCode = e.officeCode
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
@@ -83,22 +84,21 @@ df_customers = pd.read_sql("""
     ORDER BY n_customers DESC
 """, conn)
 
-# Part 6: Step 10 (Fixing for 'Loui')
+# Part 6: Step 10 — FIXED subquery to correctly find employees with <20 unique purchasers
 df_under_20 = pd.read_sql("""
     SELECT DISTINCT e.employeeNumber, e.firstName, e.lastName, o.city, o.officeCode
     FROM employees e
     JOIN offices o ON e.officeCode = o.officeCode
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
-    JOIN orders ord ON c.customerNumber = ord.customerNumber
-    JOIN orderdetails od ON ord.orderNumber = od.orderNumber
-    WHERE od.productCode IN (
-        SELECT productCode
-        FROM orderdetails
-        JOIN orders ON orderdetails.orderNumber = orders.orderNumber
-        GROUP BY productCode
-        HAVING COUNT(DISTINCT customerNumber) < 20
+    WHERE e.employeeNumber NOT IN (
+        SELECT c2.salesRepEmployeeNumber
+        FROM customers c2
+        JOIN orders ord2 ON c2.customerNumber = ord2.customerNumber
+        JOIN orderdetails od2 ON ord2.orderNumber = od2.orderNumber
+        GROUP BY od2.productCode, c2.salesRepEmployeeNumber
+        HAVING COUNT(DISTINCT ord2.customerNumber) >= 20
     )
-    ORDER BY e.employeeNumber
+    ORDER BY e.firstName
 """, conn)
 
 conn.close()
