@@ -38,13 +38,13 @@ df_contacts = pd.read_sql("""
     ORDER BY c.contactLastName ASC
 """, conn)
 
-# Part 3: Step 5 — MAX payment per customer, sorted by max amount DESC
+#Step 5 — SUM total payments per customer, Diego has highest total
 df_payment = pd.read_sql("""
     SELECT c.contactFirstName, c.contactLastName, 
-           MAX(p.amount) AS amount, p.paymentDate
+           SUM(p.amount) AS amount, MAX(p.paymentDate) AS paymentDate
     FROM customers c
     JOIN payments p ON c.customerNumber = p.customerNumber
-    GROUP BY c.customerNumber, c.contactFirstName, c.contactLastName, p.paymentDate
+    GROUP BY c.customerNumber, c.contactFirstName, c.contactLastName
     ORDER BY amount DESC
 """, conn)
 # Part 4: Step 6 & 7
@@ -74,32 +74,39 @@ df_total_customers = pd.read_sql("""
     GROUP BY 1, 2
     ORDER BY numpurchasers DESC
 """, conn)
-
-#Step 9 — count distinct customers linked to each office
+#step 9
 df_customers = pd.read_sql("""
-    SELECT o.officeCode, o.city, COUNT(DISTINCT c.customerNumber) AS n_customers
+    SELECT o.officeCode, o.city, COUNT(DISTINCT ord.customerNumber) AS n_customers
     FROM offices o
     JOIN employees e ON o.officeCode = e.officeCode
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
+    JOIN orders ord ON c.customerNumber = ord.customerNumber
     GROUP BY o.officeCode, o.city
     ORDER BY n_customers DESC
 """, conn)
 
-# Part 6: Step 10 — employees where ALL their products have < 20 unique customers
+## Part 6: Step 10 — find employees who have customers that ONLY ordered 
+# products purchased by fewer than 20 unique customers total
 df_under_20 = pd.read_sql("""
     SELECT DISTINCT e.employeeNumber, e.firstName, e.lastName, o.city, o.officeCode
     FROM employees e
     JOIN offices o ON e.officeCode = o.officeCode
-    JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
-    JOIN orders ord ON c.customerNumber = ord.customerNumber
-    JOIN orderdetails od ON ord.orderNumber = od.orderNumber
-    WHERE od.productCode NOT IN (
-        SELECT od2.productCode
-        FROM orderdetails od2
-        JOIN orders ord2 ON od2.orderNumber = ord2.orderNumber
-        GROUP BY od2.productCode
-        HAVING COUNT(DISTINCT ord2.customerNumber) >= 20
+    WHERE e.employeeNumber IN (
+        SELECT salesRepEmployeeNumber
+        FROM customers
+        WHERE customerNumber IN (
+            SELECT DISTINCT customerNumber
+            FROM orders
+            JOIN orderdetails USING(orderNumber)
+            WHERE productCode IN (
+                SELECT productCode
+                FROM orderdetails
+                JOIN orders USING(orderNumber)
+                GROUP BY productCode
+                HAVING COUNT(DISTINCT customerNumber) < 20
+            )
+        )
     )
-    ORDER BY e.lastName
+    ORDER BY e.firstName ASC
 """, conn)
 conn.close()
