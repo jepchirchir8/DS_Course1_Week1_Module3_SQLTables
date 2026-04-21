@@ -85,7 +85,6 @@ df_customers = pd.read_sql("""
 # products purchased by fewer than 20 unique customers total
 
 # Step 10
-d# Step 10
 df_under_20 = pd.read_sql("""
     SELECT DISTINCT e.employeeNumber, e.firstName, e.lastName, o.city, o.officeCode
     FROM employees e
@@ -93,12 +92,12 @@ df_under_20 = pd.read_sql("""
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
     JOIN orders ord ON c.customerNumber = ord.customerNumber
     JOIN orderdetails od ON ord.orderNumber = od.orderNumber
-    WHERE od.productCode NOT IN (
+    WHERE od.productCode IN (
         SELECT productCode
         FROM orderdetails od2
         JOIN orders o2 ON od2.orderNumber = o2.orderNumber
         GROUP BY od2.productCode
-        HAVING COUNT(DISTINCT o2.customerNumber) >= 20
+        HAVING COUNT(DISTINCT o2.customerNumber) < 20
     )
     ORDER BY e.firstName ASC
 """, conn)
