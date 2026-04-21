@@ -78,8 +78,7 @@ df_customers = pd.read_sql("""
     FROM offices o
     JOIN employees e ON o.officeCode = e.officeCode
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
-    GROUP BY o.officeCode, o.city
-    ORDER BY n_customers DESC
+    GROUP BY o.officeCode
 """, conn)
 
 ## Part 6: Step 10 — find employees who have customers that ONLY ordered 
