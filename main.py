@@ -84,22 +84,24 @@ df_customers = pd.read_sql("""
 ## Part 6: Step 10 — find employees who have customers that ONLY ordered 
 # products purchased by fewer than 20 unique customers total
 # Fixed Step 10
+# Step 10
 df_under_20 = pd.read_sql("""
     SELECT DISTINCT e.employeeNumber, e.firstName, e.lastName, o.city, o.officeCode
     FROM employees e
     JOIN offices o ON e.officeCode = o.officeCode
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
-    WHERE c.customerNumber NOT IN (
-        SELECT DISTINCT customerNumber
-        FROM orders
-        JOIN orderdetails USING (orderNumber)
-        WHERE productCode IN (
+    WHERE c.customerNumber IN (
+        SELECT DISTINCT o.customerNumber
+        FROM orders o
+        JOIN orderdetails od ON o.orderNumber = od.orderNumber
+        GROUP BY o.customerNumber
+        HAVING SUM(CASE WHEN od.productCode IN (
             SELECT productCode
-            FROM orderdetails
-            JOIN orders USING (orderNumber)
-            GROUP BY productCode
-            HAVING COUNT(DISTINCT customerNumber) >= 20
-        )
+            FROM orderdetails od2
+            JOIN orders o2 ON od2.orderNumber = o2.orderNumber
+            GROUP BY od2.productCode
+            HAVING COUNT(DISTINCT o2.customerNumber) >= 20
+        ) THEN 1 ELSE 0 END) = 0
     )
     ORDER BY e.firstName ASC
 """, conn)
