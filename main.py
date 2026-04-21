@@ -1,91 +1,89 @@
 import sqlite3
 import pandas as pd
-import numpy as np
 
 conn = sqlite3.connect('data.sqlite')
 
-# Part 1: Step 1
+# CodeGrade step1 - shape (2, 2): firstName, lastName of Boston employees
 df_boston = pd.read_sql("""
-    SELECT e.firstName, e.lastName
-    FROM employees e
-    JOIN offices o ON e.officeCode = o.officeCode
-    WHERE o.city = 'Boston'
+SELECT e.firstName, e.lastName
+FROM employees e
+JOIN offices o ON e.officeCode = o.officeCode
+WHERE o.city = 'Boston'
 """, conn)
 
-# Part 1: Step 2
+# CodeGrade step2 - offices with zero employees
 df_zero_emp = pd.read_sql("""
-    SELECT o.officeCode, o.city, COUNT(e.employeeNumber) AS employeeCount
-    FROM offices o
-    LEFT JOIN employees e ON o.officeCode = e.officeCode
-    GROUP BY o.officeCode
-    HAVING employeeCount = 0
+SELECT o.*
+FROM offices o
+LEFT JOIN employees e ON o.officeCode = e.officeCode
+WHERE e.employeeNumber IS NULL
 """, conn)
 
-# Part 2: Step 3
+# CodeGrade step3 - all employees with office city and state, ordered by firstName then lastName
 df_employee = pd.read_sql("""
-    SELECT e.firstName, e.lastName, o.city, o.state
-    FROM employees e
-    LEFT JOIN offices o ON e.officeCode = o.officeCode
-    ORDER BY e.firstName, e.lastName
+SELECT e.firstName, e.lastName, o.city, o.state
+FROM employees e
+LEFT JOIN offices o ON e.officeCode = o.officeCode
+ORDER BY e.firstName, e.lastName
 """, conn)
 
-# Part 2: Step 4 — RENAMED to df_contacts
+# CodeGrade step4 - customers with no orders, sorted by lastName
 df_contacts = pd.read_sql("""
-    SELECT c.contactFirstName, c.contactLastName, c.phone, c.salesRepEmployeeNumber
-    FROM customers c
-    LEFT JOIN orders o ON c.customerNumber = o.customerNumber
-    WHERE o.orderNumber IS NULL
-    ORDER BY c.contactLastName ASC
+SELECT c.contactFirstName, c.contactLastName, c.phone, c.salesRepEmployeeNumber
+FROM customers c
+LEFT JOIN orders o ON c.customerNumber = o.customerNumber
+WHERE o.orderNumber IS NULL
+ORDER BY c.contactLastName
 """, conn)
 
-# Updated Step 5
+# CodeGrade step5 - customer payments sorted by amount descending
 df_payment = pd.read_sql("""
-    SELECT c.contactFirstName, c.contactLastName, p.amount, p.paymentDate
-    FROM customers c
-    JOIN payments p ON c.customerNumber = p.customerNumber
-    ORDER BY CAST(p.amount AS REAL) DESC
+SELECT c.contactFirstName, c.contactLastName, p.amount, p.paymentDate
+FROM customers c
+JOIN payments p ON c.customerNumber = p.customerNumber
+ORDER BY CAST(p.amount AS REAL) DESC
 """, conn)
-# Part 4: Step 6 & 7
+
+# CodeGrade step6 - employees whose customers avg credit limit > 90k
 df_credit = pd.read_sql("""
-    SELECT e.employeeNumber, e.firstName, e.lastName, COUNT(c.customerNumber) AS no_of_customers
-    FROM employees e
-    JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
-    GROUP BY 1, 2, 3
-    HAVING AVG(c.creditLimit) > 90000
-    ORDER BY no_of_customers DESC
+SELECT e.employeeNumber, e.firstName, e.lastName, COUNT(c.customerNumber) AS num_customers
+FROM employees e
+JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
+GROUP BY e.employeeNumber
+HAVING AVG(CAST(c.creditLimit AS REAL)) > 90000
+ORDER BY num_customers DESC
 """, conn)
 
+# CodeGrade step7 - product sales count and total units, sorted by totalunits
 df_product_sold = pd.read_sql("""
-    SELECT p.productName, COUNT(od.productCode) AS numorders, SUM(od.quantityOrdered) AS totalunits
-    FROM products p
-    JOIN orderdetails od ON p.productCode = od.productCode
-    GROUP BY 1
-    ORDER BY totalunits DESC
+SELECT p.productName, COUNT(od.orderNumber) AS numorders, SUM(od.quantityOrdered) AS totalunits
+FROM products p
+JOIN orderdetails od ON p.productCode = od.productCode
+GROUP BY p.productCode
+ORDER BY totalunits DESC
 """, conn)
 
-# Part 5: Step 8
+# CodeGrade step8 - number of unique customers per product, sorted by numpurchasers
 df_total_customers = pd.read_sql("""
-    SELECT p.productName, p.productCode, COUNT(DISTINCT o.customerNumber) AS numpurchasers
-    FROM products p
-    JOIN orderdetails od ON p.productCode = od.productCode
-    JOIN orders o ON od.orderNumber = o.orderNumber
-    GROUP BY 1, 2
-    ORDER BY numpurchasers DESC
+SELECT p.productName, p.productCode, COUNT(DISTINCT o.customerNumber) AS numpurchasers
+FROM products p
+JOIN orderdetails od ON p.productCode = od.productCode
+JOIN orders o ON od.orderNumber = o.orderNumber
+GROUP BY p.productCode
+ORDER BY numpurchasers DESC
 """, conn)
-#step 9
+
+# CodeGrade step9 - number of customers per office
 df_customers = pd.read_sql("""
-    SELECT o.officeCode, o.city, COUNT(DISTINCT c.customerNumber) AS n_customers
-    FROM offices o
-    JOIN employees e ON o.officeCode = e.officeCode
-    JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
-    GROUP BY o.officeCode
+SELECT o.officeCode, o.city, COUNT(c.customerNumber) AS n_customers
+FROM offices o
+JOIN employees e ON o.officeCode = e.officeCode
+JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
+GROUP BY o.officeCode
 """, conn)
 
-## Part 6: Step 10 — find employees who have customers that ONLY ordered 
-# products purchased by fewer than 20 unique customers total
-
-# Step 10
-ddf_under_20 = pd.read_sql("""
+# CodeGrade step10 - employees who sold products ordered by fewer than 20 customers, sorted by lastName
+df_under_20 = pd.read_sql("""
 SELECT DISTINCT e.employeeNumber, e.firstName, e.lastName, off.city, off.officeCode
 FROM employees e
 JOIN offices off ON e.officeCode = off.officeCode
@@ -101,4 +99,5 @@ WHERE od.productCode IN (
 )
 ORDER BY e.lastName
 """, conn)
+
 conn.close()
