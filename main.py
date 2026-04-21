@@ -73,9 +73,8 @@ df_total_customers = pd.read_sql("""
     ORDER BY numpurchasers DESC
 """, conn)
 #step 9
-# Fixed Step 9
 df_customers = pd.read_sql("""
-    SELECT o.officeCode, o.city, COUNT(c.customerNumber) AS n_customers
+    SELECT o.officeCode, o.city, COUNT(DISTINCT c.customerNumber) AS n_customers
     FROM offices o
     JOIN employees e ON o.officeCode = e.officeCode
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
@@ -91,16 +90,16 @@ df_under_20 = pd.read_sql("""
     FROM employees e
     JOIN offices o ON e.officeCode = o.officeCode
     JOIN customers c ON e.employeeNumber = c.salesRepEmployeeNumber
-    WHERE c.customerNumber IN (
-        SELECT customerNumber 
-        FROM orders 
+    WHERE c.customerNumber NOT IN (
+        SELECT DISTINCT customerNumber
+        FROM orders
         JOIN orderdetails USING (orderNumber)
         WHERE productCode IN (
             SELECT productCode
             FROM orderdetails
             JOIN orders USING (orderNumber)
             GROUP BY productCode
-            HAVING COUNT(DISTINCT customerNumber) < 20
+            HAVING COUNT(DISTINCT customerNumber) >= 20
         )
     )
     ORDER BY e.firstName ASC
